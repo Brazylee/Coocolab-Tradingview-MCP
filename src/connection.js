@@ -7,6 +7,25 @@ const CDP_PORT = 9222;
 const MAX_RETRIES = 5;
 const BASE_DELAY = 500;
 
+/**
+ * Sanitize a string for safe interpolation into JavaScript code evaluated via CDP.
+ * Uses JSON.stringify to produce a properly escaped JS string literal (with quotes).
+ * Prevents injection via quotes, backticks, template literals, or control chars.
+ */
+export function safeString(str) {
+  return JSON.stringify(String(str));
+}
+
+/**
+ * Validate that a value is a finite number. Throws if NaN, Infinity, or non-numeric.
+ * Prevents corrupt values from reaching TradingView APIs that persist to cloud state.
+ */
+export function requireFinite(value, name) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${name} must be a finite number, got: ${value}`);
+  return n;
+}
+
 // Known direct API paths discovered via live probing (see PROBE_RESULTS.md)
 const KNOWN_PATHS = {
   chartApi: 'window.TradingViewApi._activeChartWidgetWV.value()',
