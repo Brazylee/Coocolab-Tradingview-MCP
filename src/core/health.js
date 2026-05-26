@@ -1,8 +1,9 @@
+// patched 2026-05-26: added WindowsApps path detection
 /**
  * Core health/discovery/launch logic.
  */
 import { getClient, getTargetInfo, evaluate } from '../connection.js';
-import { existsSync } from 'fs';
+import { existsSync, globSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 
 export async function healthCheck() {
@@ -184,7 +185,20 @@ export async function launch({ port, kill_existing } = {}) {
   };
 
   let tvPath = null;
-  const candidates = pathMap[platform] || pathMap.linux;
+  let candidates = pathMap[platform] || pathMap.linux;
+
+  // Microsoft Store (WindowsApps) installs TradingView into a versioned package
+  // dir, e.g. ...\WindowsApps\TradingView.Desktop_3.1.0.7818_x64__n534cwy3pjxzj\.
+  // The version + publisher hash change on every TV update, so resolve via glob.
+  // Glob patterns must use forward slashes (backslashes are escape chars).
+  if (platform === 'win32') {
+    try {
+      const programFiles = (process.env.PROGRAMFILES || 'C:/Program Files').replace(/\\/g, '/');
+      const storeMatches = globSync(`${programFiles}/WindowsApps/TradingView.Desktop_*_x64_*/TradingView.exe`);
+      candidates = [...candidates, ...storeMatches];
+    } catch { /* WindowsApps dir may be ACL-restricted; ignore and fall through */ }
+  }
+
   for (const p of candidates) {
     if (p && existsSync(p)) { tvPath = p; break; }
   }
